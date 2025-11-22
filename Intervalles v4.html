@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Melody Master - Ultimate Edition</title>
+    <style>
+        :root {
+            --bg: #0f172a;
+            --panel: #1e293b;
+            --panel-border: rgba(255,255,255,0.08);
+            --primary: #6366f1; /* Violet/Bleu Harmonist */
+            --primary-glow: rgba(99, 102, 241, 0.4);
+            --accent: #d946ef; /* Rose */
+            --up: #34d399;     /* Vert pour Monter */
+            --down: #f472b6;   /* Rose pour Descendre */
+            --gold: #fbbf24;
+            --text: #f8fafc;
+            --text-dim: #94a3b8;
+            --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            --radius: 16px;
+            --success: #10b981;
+            --error: #ef4444;
+        }
+
+        * { box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; outline: none; }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: var(--font);
+            margin: 0; padding: 0;
+            height: 100dvh; /* dvh pour mobile */
+            width: 100vw;
+            overflow: hidden;
+            display: flex; justify-content: center;
+            overscroll-behavior: none;
+        }
+
+        .app-container {
+            width: 100%; max-width: 1000px;
+            height: 100%;
+            display: flex; flex-direction: column;
+            padding: 10px;
+            gap: 10px;
+            padding-bottom: env(safe-area-inset-bottom, 10px);
+        }
+
+        /* --- HEADER (Style Harmonist) --- */
+        header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 8px 12px; background: var(--panel); border-radius: var(--radius);
+            border: 1px solid var(--panel-border);
+            flex-shrink: 0;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            gap: 10px;
+            min-height: 55px;
+        }
+        .header-left { display: flex; align-items: center; gap: 10px; overflow: hidden; flex: 1; }
+        .rank-icon { font-size: 1.5rem; flex-shrink: 0; }
+        .rank-text { display: flex; flex-direction: column; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .rank-title { font-weight: 800; color: var(--gold); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; }
+        .lvl-pill { font-size: 0.7rem; color: var(--text-dim); background: rgba(0,0,0,0.2); padding: 1px 6px; border-radius: 4px; align-self: flex-start; margin-bottom: 2px; }
+        
+        .xp-container { position: absolute; bottom: 0; left: 0; width: 100%; height: 3px; background: rgba(0,0,0,0.3); overflow: hidden; border-radius: 0 0 var(--radius) var(--radius); }
+        .xp-fill { height: 100%; background: linear-gradient(90deg, var(--primary), var(--accent)); width: 0%; transition: width 0.5s ease-out; }
+
+        .header-right { display: flex; align-items: center; gap: 8px; }
+        .stats-cluster { display: flex; gap: 6px; align-items: center; }
+        .stat-badge { 
+            background: rgba(0,0,0,0.3); border: 1px solid var(--panel-border); 
+            padding: 4px 8px; border-radius: 8px; text-align: center; 
+            display: flex; flex-direction: column; justify-content: center; 
+            min-width: 45px; position: relative;
+        }
+        .stat-val { font-weight: 800; font-size: 0.9rem; color: white; }
+        .stat-lbl { font-size: 0.5rem; text-transform: uppercase; color: var(--text-dim); letter-spacing: 0.5px; }
+        .trophy { color: var(--gold); border-color: rgba(251, 191, 36, 0.2); }
+        .streak-fire { color: #ef4444; text-shadow: 0 0 10px #ef4444; animation: pulseFire 1s infinite; }
+        @keyframes pulseFire { 0%{transform:scale(1);} 50%{transform:scale(1.1);} 100%{transform:scale(1);} }
+
+        .header-actions { display: flex; gap: 5px; padding-left: 10px; border-left: 1px solid var(--panel-border); }
+        .icon-btn { background: transparent; border: none; font-size: 1.3rem; cursor: pointer; padding: 5px; border-radius: 8px; transition: background 0.2s; opacity: 0.8; color: var(--text); }
+        .icon-btn:hover { background: rgba(255,255,255,0.1); opacity: 1; }
+
+        /* --- VISUALISATION --- */
+        .melody-vis { 
+            flex: 0 0 180px; background: #0f172a; border: 1px solid var(--panel-border); border-radius: var(--radius); 
+            position: relative; overflow: hidden; box-shadow: inset 0 0 50px rgba(0,0,0,0.8); width: 100%;
+        }
+        #melodyCanvas { width: 100%; height: 100%; display: block; }
+        .loader-overlay { position: absolute; inset:0; background: rgba(15,23,42,0.95); z-index: 10; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.5s; pointer-events: none; }
+        .loader-overlay.done { opacity: 0; }
+        
+        .msg-overlay { 
+            position: absolute; top: 10px; left: 50%; transform: translateX(-50%); 
+            background: rgba(0,0,0,0.8); padding: 5px 15px; border-radius: 20px; 
+            font-size: 0.9rem; font-weight: 700; color: var(--gold); 
+            pointer-events: none; opacity: 0; transition: opacity 0.2s; z-index: 5; 
+            border: 1px solid rgba(251, 191, 36, 0.3); backdrop-filter: blur(4px);
+        }
+        .msg-overlay.show { opacity: 1; }
+        
+        .flavor-badge { 
+            position:absolute; bottom:5px; right:5px; font-size: 0.6rem; 
+            color: var(--primary); border: 1px solid var(--primary); padding: 2px 6px; 
+            border-radius: 4px; opacity: 0; transition: opacity 0.5s; pointer-events: none; background: rgba(0,0,0,0.5);
+        }
+
+        /* --- INPUT AREA --- */
+        .input-area { flex: 1; display: flex; gap: 10px; min-height: 0; }
+        .zone { flex: 1; display: flex; flex-direction: column; border-radius: var(--radius); border: 1px solid var(--panel-border); overflow: hidden; background: rgba(0,0,0,0.2); }
+        .zone-header { text-align: center; padding: 8px; font-weight: 800; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .zone-grid { flex: 1; display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; padding: 6px; overflow-y: auto; }
+        
+        .zone-down { background: linear-gradient(to bottom, rgba(244, 114, 182, 0.05), transparent); border-color: rgba(244, 114, 182, 0.2); }
+        .zone-down .zone-header { color: var(--down); background: rgba(244, 114, 182, 0.1); }
+        .zone-up { background: linear-gradient(to bottom, rgba(52, 211, 153, 0.05), transparent); border-color: rgba(52, 211, 153, 0.2); }
+        .zone-up .zone-header { color: var(--up); background: rgba(52, 211, 153, 0.1); }
+        
+        @media (min-width: 768px) { .zone-grid { grid-template-columns: repeat(3, 1fr); } }
+
+        .pad { 
+            background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); 
+            border-radius: 10px; cursor: pointer; position: relative; 
+            display: flex; flex-direction: column; align-items: center; justify-content: center; 
+            transition: all 0.15s; min-height: 50px; 
+        }
+        .pad:active { transform: scale(0.96); }
+        .pad-main { font-size: 0.95rem; font-weight: 800; font-family: monospace; }
+        .pad-sub { font-size: 0.65rem; opacity: 0.5; margin-top:2px; font-weight: bold; }
+        .pad.hidden { display: none; }
+        
+        .zone-down .pad:hover { background: var(--down); color: #000; box-shadow: 0 0 15px var(--down); border-color:transparent; }
+        .zone-up .pad:hover { background: var(--up); color: #000; box-shadow: 0 0 15px var(--up); border-color:transparent; }
+
+        /* --- COMMANDES (Style Harmonist) --- */
+        .command-bar { 
+            display: flex; gap: 10px; height: 60px; flex-shrink: 0; 
+            background: var(--panel); padding: 6px; border-radius: 16px;
+            border: 1px solid var(--panel-border);
+            box-shadow: 0 -5px 20px rgba(0,0,0,0.2);
+            z-index: 10;
+        }
+        .btn { 
+            border: none; border-radius: 12px; font-weight: 700; cursor: pointer; 
+            display: flex; flex-direction: column; align-items: center; justify-content: center; 
+            transition: 0.1s; font-family: var(--font);
+        }
+        .btn:active { transform: scale(0.96); }
+        
+        .btn-play { flex: 1; background: #334155; color: white; font-size: 0.75rem; border: 1px solid rgba(255,255,255,0.1); }
+        .btn-next { 
+            flex: 1.5; background: var(--primary); color: white; font-size: 1rem; 
+            text-transform: uppercase; letter-spacing: 1px; 
+            box-shadow: 0 4px 12px var(--primary-glow);
+        }
+        .btn span { font-size: 1.2rem; margin-bottom: 2px; }
+
+        /* --- MODALS (Style Harmonist) --- */
+        .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 100; align-items: center; justify-content: center; backdrop-filter: blur(5px); }
+        .modal-overlay.open { display: flex; animation: fadeIn 0.2s; }
+        .modal { 
+            background: var(--panel); padding: 25px; border-radius: 24px; border: 1px solid var(--panel-border); 
+            width: 95%; max-width: 500px; max-height: 90vh; display: flex; flex-direction: column; 
+            box-shadow: 0 25px 50px rgba(0,0,0,0.6); 
+        }
+        .modal-scroll { overflow-y: auto; flex: 1; padding-right: 5px; }
+        
+        .setting-group { margin-bottom: 15px; background: rgba(0,0,0,0.2); padding: 15px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); }
+        .setting-title { color: var(--primary); font-size: 0.8rem; font-weight: 800; margin-bottom: 10px; text-transform: uppercase; letter-spacing:1px; }
+        
+        /* Checkboxes style bouton */
+        .grid-checkboxes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+        .chk-btn { 
+            background: #334155; padding: 8px; border-radius: 8px; font-size: 0.8rem; 
+            text-align: center; cursor: pointer; border: 1px solid transparent; transition:0.2s; 
+        }
+        .chk-btn.active { background: var(--primary); color: white; font-weight: bold; box-shadow: 0 0 10px var(--primary-glow); }
+        
+        /* Sliders custom */
+        input[type=range] { width: 100%; accent-color: var(--primary); margin: 10px 0; cursor: pointer; }
+        .range-labels { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-dim); }
+
+        /* Stats bars */
+        .stat-row { margin-bottom: 12px; }
+        .stat-header { display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 4px; }
+        .stat-track { height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden; }
+        .stat-bar { height: 100%; transition: width 0.5s; }
+
+        @keyframes fadeIn { from{opacity:0; transform:scale(0.95);} to{opacity:1; transform:scale(1);} }
+        .confetti-canvas { position: fixed; top:0; left:0; width:100%; height:100%; pointer-events: none; z-index: 90; }
+
+        /* Mobile adjustments */
+        @media (max-width: 600px) {
+            .rank-text { display: none; }
+            .header-left { flex: 0 0 auto; }
+            .header-right { flex: 1; justify-content: flex-end; }
+            .app-container { padding: 5px; gap: 5px; }
+            .command-bar { height: 55px; }
+        }
+    </style>
+</head>
+<body>
+<canvas class="confetti-canvas" id="confetti"></canvas>
+
+<div class="app-container">
+    <header>
+        <div class="header-left">
+            <div class="rank-icon" id="rankIcon">📄</div>
+            <div class="rank-text" style="display:flex;"> <div class="lvl-pill">Niveau <span id="lvlNum">1</span></div>
+                <div class="rank-title" id="rankTitle">Débutant</div>
+            </div>
+            <div class="xp-container"><div class="xp-fill" id="xpBar"></div></div>
+        </div>
+        <div class="header-right">
+            <div class="stats-cluster">
+                 <div class="stat-badge trophy">
+                    <span class="stat-lbl">Record</span>
+                    <span class="stat-val" id="highScoreVal">0</span>
+                </div>
+                <div class="stat-badge">
+                    <span class="stat-lbl">Série</span>
+                    <span class="stat-val" id="streakVal">0</span>
+                </div>
+            </div>
+            <div class="header-actions">
+                <button class="icon-btn" onclick="UI.openModal('statsModal')">📊</button>
+                <button class="icon-btn" onclick="UI.openModal('settingsModal')">⚙️</button>
+            </div>
+        </div>
+    </header>
+
+    <div class="melody-vis">
+        <canvas id="melodyCanvas"></canvas>
+        <div class="loader-overlay" id="pianoLoader">
+            <div style="margin-bottom:10px; font-size:2rem;">🎹</div>
+            <div style="font-size:0.8rem; font-weight:700; color:var(--text-dim);">CHARGEMENT PIANO...</div>
+        </div>
+        <div class="msg-overlay" id="feedbackMsg">Prêt ?</div>
+        <div id="flavorBadge" class="flavor-badge">MODE TONAL</div>
+    </div>
+
+    <div class="input-area">
+        <div class="zone zone-down">
+            <div class="zone-header">↘ Descendre</div>
+            <div class="zone-grid" id="gridDown"></div>
+        </div>
+        <div class="zone zone-up">
+            <div class="zone-header">↗ Monter</div>
+            <div class="zone-grid" id="gridUp"></div>
+        </div>
+    </div>
+
+    <div class="command-bar">
+        <button class="btn btn-play" onclick="App.playFirstNote()"><span>🏁</span> Départ</button>
+        <button class="btn btn-play" id="btnListen" onclick="App.playSequence()"><span>▶</span> Mélodie</button>
+        <button class="btn btn-play" onclick="App.playCurrentNote()"><span>👂</span> Intervalle</button>
+        <button class="btn btn-next" id="btnNext" onclick="App.newMelody()" style="display:none;">Suivant ➝</button>
+    </div>
+</div>
+
+<div class="modal-overlay" id="settingsModal">
+    <div class="modal">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+            <h2 style="margin:0;">Paramètres</h2>
+            <span style="cursor:pointer; font-size:1.5rem;" onclick="UI.closeModals()">✕</span>
+        </div>
+        <div class="modal-scroll">
+            <div class="setting-group">
+                <div class="setting-title">Difficulté</div>
+                <label>Atonalité (Sortie de Gamme)</label>
+                <input type="range" min="0" max="100" value="70" id="rngAtonal" oninput="App.updateSettingsUI()">
+                <div class="range-labels"><span>Tonal</span><span id="lblAtonal" style="color:var(--primary); font-weight:bold;">70%</span><span>Atonal</span></div>
+                
+                <br><label>Mouvements Conjoints (2des)</label>
+                <input type="range" min="0" max="100" value="50" id="rngConjoint" oninput="App.updateSettingsUI()">
+                <div class="range-labels"><span>Sauts</span><span id="lblConjoint" style="font-weight:bold;">50%</span><span>Conjoint</span></div>
+            </div>
+            <div class="setting-group">
+                <div class="setting-title">Séquence</div>
+                <label>Tempo : <span id="lblBpm" style="font-weight:bold;">120</span> BPM</label>
+                <input type="range" min="60" max="200" value="120" step="10" id="rngBpm" oninput="App.updateSettingsUI()">
+                
+                <br><label>Longueur : <span id="lblLen" style="font-weight:bold;">5</span> notes</label>
+                <input type="range" min="3" max="12" value="5" id="rngLen" oninput="App.updateSettingsUI()">
+            </div>
+            <div class="setting-group">
+                <div class="setting-title">Intervalles Autorisés</div>
+                <div class="grid-checkboxes" id="intervalsSettingsGrid"></div>
+            </div>
+            <button class="chk-btn" onclick="App.resetSave()" style="width:100%; background:rgba(239, 68, 68, 0.2); color:var(--error);">⚠️ Réinitialiser Progression</button>
+        </div>
+        <button class="btn btn-next" style="width:100%; padding:15px; margin-top:10px; flex:0 0 auto;" onclick="App.applySettings()">Appliquer</button>
+    </div>
+</div>
+
+<div class="modal-overlay" id="statsModal">
+    <div class="modal" style="text-align:left;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+            <h2 style="margin:0;">Statistiques</h2>
+            <span style="cursor:pointer; font-size:1.5rem;" onclick="UI.closeModals()">✕</span>
+        </div>
+        <div class="modal-scroll" id="statsContent"></div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modalLevelUp">
+    <div class="modal" style="border-color:var(--gold); text-align:center;">
+        <div style="font-size:4rem;">🎉</div>
+        <h2 style="color:var(--gold); margin:0;">NIVEAU SUPÉRIEUR !</h2>
+        <p style="color:var(--text-dim);">Vous êtes maintenant</p>
+        <h1 id="newRankName" style="color:white; margin:15px 0; font-size:1.5rem;">...</h1>
+        <button class="btn btn-next" style="width:100%; padding:12px;" onclick="UI.closeModals()">Continuer</button>
+    </div>
+</div>
+
+<script>
+    // --- DONNEES & CONSTANTES ---
+    const INTERVALS = [
+        { id: 1, label: 'm2', name: '2de Min' }, { id: 2, label: 'M2', name: '2de Maj' },
+        { id: 3, label: 'm3', name: '3ce Min' }, { id: 4, label: 'M3', name: '3ce Maj' },
+        { id: 5, label: 'P4', name: 'Quarte' }, { id: 6, label: 'TT', name: 'Triton' },
+        { id: 7, label: 'P5', name: 'Quinte' }, { id: 8, label: 'm6', name: '6te Min' },
+        { id: 9, label: 'M6', name: '6te Maj' }, { id: 10, label: 'm7', name: '7ème Min' },
+        { id: 11, label: 'M7', name: '7ème Maj' }, { id: 12, label: 'P8', name: 'Octave' }
+    ];
+    
+    // Rangs importés de Harmonist (plus sympas)
+    const RANKS = [
+        {t:"Tourneur de pages",i:"📄"}, {t:"Auditeur curieux",i:"👂"}, {t:"Observateur attentif",i:"👀"},
+        {t:"Mélomane motivé",i:"🎧"}, {t:"Déchiffreur du dimanche",i:"👓"}, {t:"Explorateur Tonal",i:"🧭"},
+        {t:"Solfégiste amateur",i:"✏️"}, {t:"Oreille naissante",i:"🌱"}, {t:"Apprenti Mélodiste",i:"🎒"},
+        {t:"Coloriste harmonique",i:"🎨"}, {t:"Artisan de l’intervalle",i:"🎻"}, {t:"Chef de pupitre",i:"🎼"},
+        {t:"Disciple de Rameau",i:"📚"}, {t:"Solfégiste confirmé",i:"🎓"}, {t:"Voyageur Atonal",i:"🚀"},
+        {t:"Harmoniste aguerri",i:"🏹"}, {t:"Improvisateur inspiré",i:"🎹"}, {t:"Maître de chapelle",i:"⛪"},
+        {t:"Favori d’Euterpe",i:"✨"}, {t:"Réincarnation de Bach",i:"👑"}
+    ];
+
+    const MAJOR_SCALE = [0, 2, 4, 5, 7, 9, 11];
+    const DURATIONS = [0.5, 1.0, 1.5, 2.0]; 
+
+    // --- MOTEUR AUDIO ---
+    const Audio = {
+        ctx: null, master: null, reverb: null, samples: {},
+        baseUrl: 'https://tonejs.github.io/audio/salamander/',
+        sampleMap: { 36:'C2.mp3',39:'Ds2.mp3',42:'Fs2.mp3',45:'A2.mp3',48:'C3.mp3',51:'Ds3.mp3',54:'Fs3.mp3',57:'A3.mp3',60:'C4.mp3',63:'Ds4.mp3',66:'Fs4.mp3',69:'A4.mp3',72:'C5.mp3',75:'Ds5.mp3',78:'Fs5.mp3',81:'A5.mp3',84:'C6.mp3' },
+        loaded: false,
+        init() {
+            if (this.ctx) return;
+            const AC = window.AudioContext || window.webkitAudioContext; this.ctx = new AC();
+            this.master = this.ctx.createGain(); this.master.gain.value = 1.0;
+            this.reverb = this.ctx.createConvolver(); this.reverb.buffer = this.createReverbImpulse(2.0);
+            const revGain = this.ctx.createGain(); revGain.gain.value = 0.3; 
+            this.master.connect(this.ctx.destination); this.master.connect(this.reverb); this.reverb.connect(revGain); revGain.connect(this.ctx.destination);
+            this.loadSamples();
+        },
+        createReverbImpulse(d) {
+            const r = this.ctx.sampleRate, l = r*d, i = this.ctx.createBuffer(2, l, r), L=i.getChannelData(0), R=i.getChannelData(1);
+            for(let j=0;j<l;j++){ const x=Math.pow(1-j/l,3); L[j]=(Math.random()*2-1)*x; R[j]=(Math.random()*2-1)*x; }
+            return i;
+        },
+        async loadSamples() {
+            const p = Object.keys(this.sampleMap).map(async (m) => { try { const r = await fetch(this.baseUrl + this.sampleMap[m]); if(!r.ok) throw new Error(); this.samples[m] = await this.ctx.decodeAudioData(await r.arrayBuffer()); } catch(e){} });
+            Promise.allSettled(p).then(() => { this.loaded = true; document.getElementById('pianoLoader').classList.add('done'); });
+            setTimeout(() => { if(!this.loaded) { this.loaded = true; document.getElementById('pianoLoader').classList.add('done'); } }, 3000);
+        },
+        playNote(midi, time, vel=0.6, dur=2.0) {
+            if (!this.ctx) this.init(); if (!this.ctx) return; if (this.ctx.state === 'suspended') this.ctx.resume();
+            if (time === undefined) time = this.ctx.currentTime;
+            const keys = Object.keys(this.samples).map(Number).sort((a,b)=>a-b); if(!keys.length) return;
+            let close = keys[0], min = Math.abs(midi - close); for (let k of keys) { const d = Math.abs(midi - k); if(d < min){ min=d; close=k; } }
+            const src = this.ctx.createBufferSource(); src.buffer = this.samples[close]; src.playbackRate.value = Math.pow(2, (midi - close) / 12);
+            const g = this.ctx.createGain(); g.gain.setValueAtTime(0, time); 
+            g.gain.linearRampToValueAtTime(vel, time + 0.02); 
+            g.gain.exponentialRampToValueAtTime(0.001, time + dur + 2.5);
+            src.connect(g); g.connect(this.master); src.start(time);
+        },
+        playSequence(seq, bpm) {
+            if(this.ctx && this.ctx.state === 'suspended') this.ctx.resume(); if(!this.ctx) this.init();
+            const now = this.ctx.currentTime + 0.1, beat = 60 / bpm; let acc = 0;
+            seq.forEach(n => { const realDur = n.dur * beat; this.playNote(n.midi, now + acc, 0.7, realDur); acc += realDur; });
+        },
+        // Bruitages améliorés type Harmonist
+        playPureTone(f, t, dur=0.5) {
+            const o = this.ctx.createOscillator(); o.type = 'sine'; o.frequency.value = f;
+            const g = this.ctx.createGain();
+            g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.1, t + 0.05); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+            o.connect(g); g.connect(this.ctx.destination); o.start(t); o.stop(t + dur + 0.1);
+        },
+        sfx(type) {
+            if(!this.ctx) return; const t = this.ctx.currentTime;
+            if(type==='win') { [523, 659, 783, 987].forEach((f, i) => this.playPureTone(f, t + i * 0.1, 0.8)); }
+            else if(type==='lvl') { [523, 659, 783, 1046, 1318, 1568].forEach((f,i) => this.playPureTone(f, t + i * 0.06, 0.6)); }
+            else if(type==='lose') { this.playPureTone(180, t, 0.3); this.playPureTone(130, t + 0.15, 0.4); }
+        }
+    };
+
+    // --- LOGIQUE DE JEU ---
+    const App = {
+        data: {
+            xp: 0, lvl: 1, next: 100, streak: 0, score: 0, highScore: 0,
+            stats: {},
+            settings: { len: 5, bpm: 120, conjointProb: 50, atonality: 70, activeIntervals: [1,2,3,4,5,6,7,8,9,10,11,12] }
+        },
+        state: { melody: [], path: [], idx: 0, root: 60, usedIntervals: new Set() },
+
+        init() {
+            this.load();
+            this.renderSettings(); this.renderMainGrids(); this.updateHeader(); 
+            document.body.addEventListener('click', () => { if(!Audio.ctx) Audio.init(); else if(Audio.ctx.state === 'suspended') Audio.ctx.resume(); }, {once:false});
+            this.loop(); 
+            this.newMelody();
+        },
+
+        save() { localStorage.setItem('melody_ultimate_v1', JSON.stringify(this.data)); },
+        load() {
+            const s = JSON.parse(localStorage.getItem('melody_ultimate_v1') || '{}');
+            if(s.xp !== undefined) this.data = {...this.data, ...s};
+            if(!this.data.highScore) this.data.highScore = 0; // Backwards comp
+            INTERVALS.forEach(i => { if(!this.data.stats[i.id]) this.data.stats[i.id] = {ok:0, tot:0}; });
+        },
+        resetSave() { if(confirm("Tout effacer ?")) { localStorage.removeItem('melody_ultimate_v1'); location.reload(); } },
+
+        updateHeader() {
+            const d = this.data; 
+            const r = RANKS[Math.min(d.lvl-1, RANKS.length-1)];
+            document.getElementById('rankIcon').innerText = r.i; 
+            document.getElementById('lvlNum').innerText = d.lvl;
+            document.getElementById('rankTitle').innerText = r.t; 
+            document.getElementById('newRankName').innerText = r.t;
+            document.getElementById('xpBar').style.width = (d.xp/d.next)*100 + '%';
+            document.getElementById('streakVal').innerText = d.streak;
+            document.getElementById('streakVal').className = d.streak > 4 ? 'stat-val streak-fire' : 'stat-val';
+            document.getElementById('highScoreVal').innerText = d.highScore;
+        },
+
+        renderMainGrids(forcedIntervals = new Set()) {
+            const down = document.getElementById('gridDown'), up = document.getElementById('gridUp');
+            down.innerHTML = ''; up.innerHTML = '';
+            INTERVALS.forEach(i => {
+                const isActive = this.data.settings.activeIntervals.includes(i.id) || i.id <= 2 || forcedIntervals.has(i.id);
+                const cls = `pad ${isActive?'':'hidden'}`;
+                down.innerHTML += `<div class="${cls}" onclick="App.guess(-${i.id})"><div class="pad-main">${i.name}</div><div class="pad-sub">↘ ${i.label}</div></div>`;
+                up.innerHTML += `<div class="${cls}" onclick="App.guess(${i.id})"><div class="pad-main">${i.name}</div><div class="pad-sub">↗ ${i.label}</div></div>`;
+            });
+        },
+
+        renderSettings() {
+            const grid = document.getElementById('intervalsSettingsGrid'); grid.innerHTML = '';
+            INTERVALS.slice(2).forEach(i => {
+                const active = this.data.settings.activeIntervals.includes(i.id);
+                grid.innerHTML += `<div class="chk-btn ${active?'active':''}" onclick="App.toggleInt(this, ${i.id})">${i.name}</div>`;
+            });
+            document.getElementById('rngAtonal').value = this.data.settings.atonality;
+            document.getElementById('rngConjoint').value = this.data.settings.conjointProb;
+            document.getElementById('rngBpm').value = this.data.settings.bpm;
+            document.getElementById('rngLen').value = this.data.settings.len;
+            this.updateSettingsUI();
+        },
+
+        renderStats() {
+            const c = document.getElementById('statsContent'); c.innerHTML = '';
+            INTERVALS.forEach(i => {
+                const s = this.data.stats[i.id] || {ok:0, tot:0};
+                const pct = s.tot ? Math.round((s.ok/s.tot)*100) : 0;
+                const col = pct >= 80 ? 'var(--success)' : pct >= 50 ? 'var(--gold)' : 'var(--error)';
+                c.innerHTML += `<div class="stat-row"><div class="stat-header"><span>${i.name}</span><span>${pct}% (${s.ok}/${s.tot})</span></div><div class="stat-track"><div class="stat-bar" style="width:${pct}%; background:${col}"></div></div></div>`;
+            });
+        },
+
+        toggleInt(el, id) {
+            const s = this.data.settings;
+            if(s.activeIntervals.includes(id)) { s.activeIntervals = s.activeIntervals.filter(x=>x!==id); el.classList.remove('active'); }
+            else { s.activeIntervals.push(id); el.classList.add('active'); }
+        },
+        updateSettingsUI() {
+            document.getElementById('lblAtonal').innerText = document.getElementById('rngAtonal').value + "%";
+            document.getElementById('lblConjoint').innerText = document.getElementById('rngConjoint').value + "%";
+            document.getElementById('lblBpm').innerText = document.getElementById('rngBpm').value;
+            document.getElementById('lblLen').innerText = document.getElementById('rngLen').value;
+        },
+        applySettings() {
+            const s = this.data.settings;
+            s.atonality = parseInt(document.getElementById('rngAtonal').value);
+            s.conjointProb = parseInt(document.getElementById('rngConjoint').value);
+            s.bpm = parseInt(document.getElementById('rngBpm').value);
+            s.len = parseInt(document.getElementById('rngLen').value);
+            this.save(); UI.closeModals(); this.newMelody();
+        },
+
+        newMelody() {
+            this.state.melody = []; this.state.path = []; this.state.idx = 1; this.state.usedIntervals.clear();
+            document.getElementById('btnNext').style.display = 'none'; document.getElementById('btnListen').style.display = 'flex'; UI.hideMsg();
+
+            // Logique de génération conservée de Melody Master
+            let flavor = 'tonal'; let cellPool = [];
+            const atonal = this.data.settings.atonality;
+            if(atonal > 60) {
+                const r = Math.random();
+                if(r < 0.33) { flavor = 'wolf'; cellPool = [6, 7]; }
+                else if(r < 0.66) { flavor = 'minor_color'; cellPool = [3, 8]; }
+                else { flavor = 'major_color'; cellPool = [4, 9]; }
+            }
+
+            const badge = document.getElementById('flavorBadge');
+            if(flavor !== 'tonal') { badge.innerText = flavor==='wolf'?'CELLULE: TRITON / QUINTE':(flavor==='minor_color'?'CELLULE: 3ce/6te MIN':'CELLULE: 3ce/6te MAJ'); badge.style.opacity=1; } else badge.style.opacity=0;
+
+            const root = 48 + Math.floor(Math.random()*12); this.state.root = root;
+            let curr = root;
+            this.state.melody.push({ midi: curr, dur: 1 }); this.state.path.push(curr);
+            let lockedDir = Math.random() > 0.5 ? 1 : -1;
+
+            for(let i=1; i < this.data.settings.len; i++) {
+                let interval = 0; let dir = 0;
+                const isConjoint = (Math.random() * 100) < this.data.settings.conjointProb;
+                if(isConjoint) { interval = Math.random()>0.5 ? 1 : 2; }
+                else if(flavor !== 'tonal') { interval = cellPool[Math.floor(Math.random()*cellPool.length)]; }
+                else { const pool = this.data.settings.activeIntervals.length?this.data.settings.activeIntervals:[3,4,5,7]; interval = pool[Math.floor(Math.random()*pool.length)]; }
+
+                if(flavor === 'minor_color' || flavor === 'major_color') {
+                    dir = lockedDir;
+                    let testMidi = curr + (interval * dir);
+                    if(testMidi > 88 || testMidi < 36) { lockedDir *= -1; dir = lockedDir; }
+                } else {
+                    dir = Math.random() > 0.5 ? 1 : -1;
+                    if(curr > 80) dir = -1; if(curr < 45) dir = 1;
+                }
+
+                let nextMidi = curr + (interval * dir);
+                if(atonal < 50 && flavor === 'tonal') {
+                    let safe = 0;
+                    while((!this.isInScale(nextMidi, this.state.root) || nextMidi === curr) && safe < 12) { nextMidi += dir; safe++; }
+                    if(nextMidi === curr) nextMidi += dir; 
+                }
+
+                const actualInterval = Math.abs(nextMidi - curr);
+                if(actualInterval > 0 && actualInterval <= 12) this.state.usedIntervals.add(actualInterval);
+                curr = nextMidi;
+                const dur = DURATIONS[Math.floor(Math.random()*DURATIONS.length)];
+                this.state.melody.push({ midi: curr, dur: dur });
+            }
+
+            this.renderMainGrids(this.state.usedIntervals);
+            this.updateUI();
+            if(Audio.ctx) setTimeout(() => Audio.playSequence(this.state.melody, this.data.settings.bpm), 600);
+        },
+
+        isInScale(midi, root) { const n = (midi - root + 1200) % 12; return MAJOR_SCALE.includes(n); },
+        playSequence() { Audio.playSequence(this.state.melody, this.data.settings.bpm); },
+        playFirstNote() { if(this.state.melody.length) Audio.playNote(this.state.melody[0].midi); },
+        playCurrentNote() { if(this.state.idx < this.state.melody.length) { const p = this.state.melody[this.state.idx - 1], c = this.state.melody[this.state.idx]; Audio.playSequence([{midi:p.midi, dur:1}, {midi:c.midi, dur:1}], 90); }},
+
+        guess(val) {
+            if(this.state.idx >= this.state.melody.length) return;
+            if(!Audio.ctx) Audio.init();
+
+            const prev = this.state.melody[this.state.idx - 1].midi;
+            const target = this.state.melody[this.state.idx].midi;
+            const userMidi = prev + val;
+            const absInv = Math.abs(val);
+
+            this.data.stats[absInv].tot++;
+
+            if(userMidi === target) {
+                this.data.stats[absInv].ok++; 
+                this.data.streak++;
+                
+                // CALCUL DES POINTS façon HARMONIST
+                let pts = 10 + (this.data.streak * 2); 
+                this.gainXP(pts);
+                
+                Audio.sfx('win');
+                this.state.path.push(userMidi); this.state.idx++; 
+                Audio.playNote(userMidi);
+                
+                if(this.state.idx >= this.state.melody.length) { 
+                    // Fin de mélodie
+                    UI.showMsg("Mélodie Complète !"); UI.confetti(); 
+                    document.getElementById('btnNext').style.display = 'flex'; 
+                    document.getElementById('btnListen').style.display = 'none'; 
+                    this.gainXP(50); // Bonus fin de mélodie
+                    
+                    // Maj High Score
+                    if(this.data.score > this.data.highScore) this.data.highScore = this.data.score;
+                }
+            } else {
+                this.data.streak = 0; 
+                Audio.sfx('lose'); 
+                Audio.playNote(userMidi); 
+                const el = document.querySelector('.app-container'); el.style.transform = "translateX(5px)"; setTimeout(()=>el.style.transform="translateX(0)", 100);
+            }
+            this.save(); this.updateUI();
+            this.updateHeader();
+        },
+
+        gainXP(n) {
+            this.data.xp += n;
+            this.data.score += n;
+            if(this.data.xp >= this.data.next) { 
+                this.data.xp -= this.data.next; 
+                this.data.lvl++; 
+                this.data.next = Math.floor(this.data.next*1.2); 
+                Audio.sfx('lvl'); 
+                UI.openModal('modalLevelUp'); 
+            }
+            this.updateHeader();
+        },
+
+        loop() {
+            requestAnimationFrame(() => this.loop());
+            this.draw();
+        },
+
+        draw() {
+            const cvs = document.getElementById('melodyCanvas'), ctx = cvs.getContext('2d');
+            if(cvs.width !== cvs.clientWidth || cvs.height !== cvs.clientHeight) {
+                cvs.width = cvs.clientWidth; cvs.height = cvs.clientHeight;
+            }
+            const W = cvs.width, H = cvs.height; ctx.clearRect(0, 0, W, H);
+            
+            // Grille subtile
+            ctx.strokeStyle = 'rgba(255,255,255,0.03)'; ctx.lineWidth = 1;
+            for(let i=0;i<12;i++){ const y=(H/12)*i; ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+            
+            const stepX = W / this.state.melody.length; 
+            let allPoints = this.state.melody.map(m => m.midi);
+            if(this.state.path.length > 0) allPoints = allPoints.concat(this.state.path);
+            
+            const min = Math.min(...allPoints) - 3;
+            const max = Math.max(...allPoints) + 3;
+            const rng = Math.max(10, max - min);
+            const getY = (m) => H - ((m - min) / rng) * H;
+            
+            if(this.state.path.length > 0) {
+                // Ligne
+                ctx.beginPath(); ctx.lineWidth = 4; ctx.strokeStyle = '#fbbf24'; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+                this.state.path.forEach((m, i) => { const x = i*stepX + stepX/2; const y = getY(m); if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y); }); 
+                ctx.stroke();
+                
+                // Points
+                this.state.path.forEach((m, i) => { 
+                    const x = i*stepX + stepX/2; const y = getY(m); 
+                    ctx.beginPath(); ctx.arc(x, y, 6, 0, Math.PI*2); ctx.fillStyle = '#fff'; ctx.fill(); 
+                    // Durée (visuel)
+                    if(i < this.state.melody.length) { ctx.fillStyle = 'rgba(255,255,255,0.2)'; ctx.fillRect(x+10, y-2, this.state.melody[i].dur*15, 4); }
+                });
+                
+                // Prochain point "Fantôme"
+                if(this.state.idx < this.state.melody.length) { 
+                    const x = this.state.idx*stepX + stepX/2, yPrev = getY(this.state.path[this.state.idx-1]); 
+                    ctx.beginPath(); ctx.arc(x, yPrev, 8, 0, Math.PI*2); 
+                    ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth=2; ctx.setLineDash([4,4]); ctx.stroke(); ctx.setLineDash([]); 
+                    ctx.fillStyle='#fff'; ctx.font='16px sans-serif'; ctx.fillText('?', x-4, yPrev-15); 
+                }
+            }
+        },
+        updateUI() { /* Placeholder si besoin maj UI complexe hors canvas */ }
+    };
+
+    const UI = {
+        showMsg(t) { const e=document.getElementById('feedbackMsg'); e.innerText=t; e.classList.add('show'); },
+        hideMsg() { document.getElementById('feedbackMsg').classList.remove('show'); },
+        openModal(id) { if(id==='settingsModal') App.renderSettings(); if(id==='statsModal') App.renderStats(); document.getElementById(id).classList.add('open'); },
+        closeModals() { document.querySelectorAll('.modal-overlay').forEach(m=>m.classList.remove('open')); },
+        confetti() { 
+            const c=document.getElementById('confetti'), x=c.getContext('2d'); c.width=window.innerWidth; c.height=window.innerHeight; 
+            let p=[]; for(let i=0;i<60;i++)p.push({x:c.width/2,y:c.height/2,vx:(Math.random()-0.5)*25,vy:(Math.random()-0.5)*25,c:`hsl(${Math.random()*360},100%,50%)`,l:1}); 
+            const u=()=>{x.clearRect(0,0,c.width,c.height); let a=false; p.forEach(k=>{if(k.l>0){k.x+=k.vx;k.y+=k.vy;k.vy+=0.6;k.l-=0.02;x.fillStyle=k.c;x.beginPath();x.arc(k.x,k.y,6,0,7);x.fill();a=true;}}); if(a)requestAnimationFrame(u);}; u(); 
+        }
+    };
+    window.onload = () => App.init();
+</script>
+</body>
+</html>
